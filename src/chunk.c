@@ -1,7 +1,14 @@
 #include <stdlib.h>
 
 #include "chunk.h"
+#include "value.h"
 #include "memory.h"
+
+static void writeBytes(Chunk *chunk, uint64_t value, int bytes, int line)
+{
+    for (int i = bytes - 1; i >= 0; i--)
+        writeChunk(chunk, (value >> (i * 8)) & 0xff, line);
+}
 
 void initChunk(Chunk *chunk)
 {
@@ -39,4 +46,30 @@ int addConstant(Chunk *chunk, Value value)
 {
     writeValueArray(&chunk->constants, value);
     return chunk->constants.count - 1;
+}
+
+void writeConstant(Chunk *chunk, Value value, int line)
+{
+    u64 constant = addConstant(chunk, value);
+
+    if (constant <= UINT8_MAX)
+    {
+        writeChunk(chunk, OP_CONSTANT_8, line);
+        writeBytes(chunk, constant, 1, line);
+    }
+    else if (constant <= UINT16_MAX)
+    {
+        writeChunk(chunk, OP_CONSTANT_16, line);
+        writeBytes(chunk, constant, 2, line);
+    }
+    else if (constant <= UINT32_MAX)
+    {
+        writeChunk(chunk, OP_CONSTANT_32, line);
+        writeBytes(chunk, constant, 4, line);
+    }
+    else
+    {
+        writeChunk(chunk, OP_CONSTANT_64, line);
+        writeBytes(chunk, constant, 8, line);
+    }
 }

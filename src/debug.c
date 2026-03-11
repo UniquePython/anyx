@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <inttypes.h>
 
 #include "debug.h"
 #include "value.h"
@@ -9,13 +10,21 @@ static int simpleInstruction(const char *name, int offset)
     return offset + 1;
 }
 
-static int constantInstruction(const char *name, Chunk *chunk, int offset)
+static int constantInstructionN(const char *name, Chunk *chunk, int offset, int bytes)
 {
-    u8 constant = chunk->code[offset + 1];
-    printf("%-16s %4d '", name, constant);
+    u64 constant = 0;
+
+    for (int i = 0; i < bytes; i++)
+    {
+        constant <<= 8;
+        constant |= chunk->code[offset + 1 + i];
+    }
+
+    printf("%-16s %4" PRIu64 " '", name, constant);
     printValue(chunk->constants.values[constant]);
     printf("'\n");
-    return offset + 2;
+
+    return offset + 1 + bytes;
 }
 
 void disassembleChunk(Chunk *chunk, const char *name)
@@ -37,10 +46,22 @@ int disassembleInstruction(Chunk *chunk, int offset)
     u8 instruction = chunk->code[offset];
     switch (instruction)
     {
-    case OP_CONSTANT:
-        return constantInstruction("OP_CONSTANT", chunk, offset);
+
+    case OP_CONSTANT_8:
+        return constantInstructionN("OP_CONSTANT_8", chunk, offset, 1);
+
+    case OP_CONSTANT_16:
+        return constantInstructionN("OP_CONSTANT_16", chunk, offset, 2);
+
+    case OP_CONSTANT_32:
+        return constantInstructionN("OP_CONSTANT_32", chunk, offset, 4);
+
+    case OP_CONSTANT_64:
+        return constantInstructionN("OP_CONSTANT_64", chunk, offset, 8);
+
     case OP_RETURN:
         return simpleInstruction("OP_RETURN", offset);
+
     default:
         printf("Unknown opcode %d\n", instruction);
         return offset + 1;
