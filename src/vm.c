@@ -33,6 +33,14 @@ static InterpretResult run(VM *vm)
 #define READ_BYTE() (*vm->ip++)
 #define READ_BYTES(n) (read_n(vm, (n)))
 
+#define BINARY_OP(vm, op)   \
+    do                      \
+    {                       \
+        double b = pop(vm); \
+        double a = pop(vm); \
+        push(vm, a op b);   \
+    } while (0)
+
     for (;;)
     {
 #ifdef DEBUG_TRACE_EXECUTION
@@ -78,12 +86,34 @@ static InterpretResult run(VM *vm)
             break;
         }
 
+        case OP_ADD:
+            BINARY_OP(vm, +);
+            break;
+
+        case OP_SUBTRACT:
+            BINARY_OP(vm, -);
+            break;
+
+        case OP_MULTIPLY:
+            BINARY_OP(vm, *);
+            break;
+
+        case OP_DIVIDE:
+            BINARY_OP(vm, /);
+            break;
+
+        case OP_NEGATE:
+            push(vm, -pop(vm));
+            break;
+
         case OP_RETURN:
             printValue(pop(vm));
             printf("\n");
             return INTERPRET_OK;
         }
     }
+
+#undef BINARY_OP
 
 #undef READ_BYTES
 #undef READ_BYTE
