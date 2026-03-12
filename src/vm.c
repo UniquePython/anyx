@@ -4,8 +4,14 @@
 #include "debug.h"
 #include "vm.h"
 
+static void resetStack(VM *vm)
+{
+    vm->stackTop = vm->stack;
+}
+
 void initVM(VM *vm)
 {
+    resetStack(vm);
 }
 
 void freeVM(VM *vm)
@@ -30,6 +36,14 @@ static InterpretResult run(VM *vm)
     for (;;)
     {
 #ifdef DEBUG_TRACE_EXECUTION
+        printf("          ");
+        for (Value *slot = vm->stack; slot < vm->stackTop; slot++)
+        {
+            printf("[ ");
+            printValue(*slot);
+            printf(" ]");
+        }
+        printf("\n");
         disassembleInstruction(vm->chunk, (int)(vm->ip - vm->chunk->code));
 #endif
         u8 instruction = READ_BYTE();
@@ -39,36 +53,34 @@ static InterpretResult run(VM *vm)
         case OP_CONSTANT_8:
         {
             u64 index = READ_BYTES(1);
-            printValue(vm->chunk->constants.values[index]);
-            printf("\n");
+            push(vm, vm->chunk->constants.values[index]);
             break;
         }
 
         case OP_CONSTANT_16:
         {
             u64 index = READ_BYTES(2);
-            printValue(vm->chunk->constants.values[index]);
-            printf("\n");
+            push(vm, vm->chunk->constants.values[index]);
             break;
         }
 
         case OP_CONSTANT_32:
         {
             u64 index = READ_BYTES(4);
-            printValue(vm->chunk->constants.values[index]);
-            printf("\n");
+            push(vm, vm->chunk->constants.values[index]);
             break;
         }
 
         case OP_CONSTANT_64:
         {
             u64 index = READ_BYTES(8);
-            printValue(vm->chunk->constants.values[index]);
-            printf("\n");
+            push(vm, vm->chunk->constants.values[index]);
             break;
         }
 
         case OP_RETURN:
+            printValue(pop(vm));
+            printf("\n");
             return INTERPRET_OK;
         }
     }
@@ -82,4 +94,16 @@ InterpretResult interpret(VM *vm, Chunk *chunk)
     vm->chunk = chunk;
     vm->ip = vm->chunk->code;
     return run(vm);
+}
+
+void push(VM *vm, Value value)
+{
+    *vm->stackTop = value;
+    vm->stackTop++;
+}
+
+Value pop(VM *vm)
+{
+    vm->stackTop--;
+    return *vm->stackTop;
 }
