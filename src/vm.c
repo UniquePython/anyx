@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "common.h"
 #include "debug.h"
@@ -11,11 +12,19 @@ static void resetStack(VM *vm)
 
 void initVM(VM *vm)
 {
-    resetStack(vm);
+    vm->stackCapacity = STACK_INITIAL_CAPACITY;
+    vm->stack = malloc(vm->stackCapacity * sizeof(Value));
+    vm->stackTop = vm->stack;
+    vm->chunk = NULL;
+    vm->ip = NULL;
 }
 
 void freeVM(VM *vm)
 {
+    free(vm->stack);
+    vm->stack = NULL;
+    vm->stackTop = NULL;
+    vm->stackCapacity = 0;
 }
 
 static u64 read_n(VM *vm, int n)
@@ -128,12 +137,32 @@ InterpretResult interpret(VM *vm, Chunk *chunk)
 
 void push(VM *vm, Value value)
 {
-    *vm->stackTop = value;
-    vm->stackTop++;
+    if ((size_t)(vm->stackTop - vm->stack) >= vm->stackCapacity)
+    {
+        size_t oldCapacity = vm->stackCapacity;
+        vm->stackCapacity *= 1.5;
+        size_t offset = vm->stackTop - vm->stack;
+
+        vm->stack = realloc(vm->stack, vm->stackCapacity * sizeof(Value));
+        if (!vm->stack)
+        {
+            fprintf(stderr, "Failed to allocate memory for VM stack.\n");
+            exit(1);
+        }
+
+        vm->stackTop = vm->stack + offset;
+    }
+
+    *vm->stackTop++ = value;
 }
 
 Value pop(VM *vm)
 {
-    vm->stackTop--;
-    return *vm->stackTop;
+    if (vm->stackTop == vm->stack)
+    {
+        fprintf(stderr, "Stack underflow.\n");
+        exit(1);
+    }
+
+    return *--vm->stackTop;
 }
